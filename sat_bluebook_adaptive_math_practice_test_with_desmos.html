@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAT Digital Practice Test - Bluebook Simulator with Desmos</title>
+    <!-- Tailwind CSS for utility styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- MathJax for rendering Math formulas -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Desmos API for embedded graphing calculator -->
+    <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=d2823b171f264417861a3e5e1652d7b2"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bbNavy: '#002D72',
+                        bbBlue: '#0077C8',
+                        bbHoverBlue: '#005FA3',
+                        bbDarkGray: '#1E293B',
+                        bbLightGray: '#F8FAFC',
+                        bbBorder: '#CBD5E1',
+                        bbYellow: '#FEF08A',
+                        bbFlagYellow: '#CA8A04'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #F8FAFC;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .math-expr {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .option-btn.selected {
+            border-color: #0077C8 !important;
+            background-color: #EFF6FF !important;
+        }
+        .option-btn.selected .option-letter {
+            background-color: #0077C8 !important;
+            color: white !important;
+        }
+
+        .option-btn.eliminated {
+            opacity: 0.4;
+            text-decoration: line-through;
+        }
+
+        .modal-bg {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(2px);
+        }
+
+        /* Desmos Drawer Resizing & Drag handle */
+        #desmos-container {
+            box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col bg-slate-50 text-slate-800">
+
+    <!-- SETUP / DASHBOARD SCREEN -->
+    <div id="setup-screen" class="h-full w-full flex flex-col justify-between overflow-y-auto bg-slate-100">
+        <!-- Setup Header -->
+        <header class="bg-bbNavy text-white px-8 py-5 shadow-md flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white text-bbNavy p-2 rounded-lg font-bold text-xl tracking-wider">SAT</div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">Digital SAT Practice Simulator</h1>
+                    <p class="text-xs text-slate-300">Hard Math Adaptive Practice Engine with Desmos</p>
+                </div>
+            </div>
+            <div id="user-stats-badge" class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg text-xs flex items-center space-x-4">
+                <div>Tests Taken: <span id="stat-tests-count" class="font-bold text-bbBlue">0</span></div>
+                <div>Avg Score: <span id="stat-avg-score" class="font-bold text-emerald-400">--</span></div>
+            </div>
+        </header>
+
+        <!-- Setup Main Content -->
+        <main class="max-w-4xl w-full mx-auto my-8 p-6 bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+            <div class="border-b pb-4 mb-6">
+                <h2 class="text-2xl font-bold text-bbNavy">Practice Test Configuration</h2>
+                <p class="text-slate-600 text-sm mt-1">Configure your practice session. Questions are sourced from the hardest SAT Math categories (Algebra, Advanced Math, Problem-Solving & Data Analysis, Geometry & Trigonometry) with integrated Desmos support.</p>
+            </div>
+
+            <form id="config-form" class="space-y-6 flex-1 flex flex-col justify-between" onsubmit="event.preventDefault(); startTest();">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Timer Config -->
+                    <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
+                        <label class="block font-semibold text-slate-700 mb-2">
+                            <i class="fa-regular fa-clock text-bbBlue mr-2"></i>Timer Settings
+                        </label>
+                        <select id="cfg-timer-type" onchange="toggleTimerInput()" class="w-full p-2.5 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-bbBlue focus:outline-none text-sm">
+                            <option value="standard">Standard Digital SAT Pace (1.5 min/q)</option>
+                            <option value="custom">Custom Time Limit</option>
+                            <option value="untimed">Untimed Mode</option>
+                        </select>
+                        <div id="custom-time-container" class="mt-3 hidden">
+                            <label class="block text-xs text-slate-500 mb-1">Time in Minutes:</label>
+                            <input type="number" id="cfg-custom-minutes" value="35" min="1" max="180" class="w-full p-2 border border-slate-300 rounded-md text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Question Count Config -->
+                    <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
+                        <label class="block font-semibold text-slate-700 mb-2">
+                            <i class="fa-solid fa-list-check text-bbBlue mr-2"></i>Number of Questions
+                        </label>
+                        <select id="cfg-question-count" class="w-full p-2.5 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-bbBlue focus:outline-none text-sm">
+                            <option value="5">5 Questions (Quick Quiz)</option>
+                            <option value="10">10 Questions (Focused Practice)</option>
+                            <option value="15" selected>15 Questions (Hard Math Blitz)</option>
+                            <option value="22">22 Questions (Full SAT Module Length)</option>
+                        </select>
+                    </div>
+
+                    <!-- Category Preference -->
+                    <div class="bg-slate-50 p-5 rounded-lg border border-slate-200 md:col-span-2">
+                        <label class="block font-semibold text-slate-700 mb-2">
+                            <i class="fa-solid fa-layer-group text-bbBlue mr-2"></i>Question Focus & Difficulty
+                        </label>
+                        <select id="cfg-category" class="w-full p-2.5 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-bbBlue focus:outline-none text-sm">
+                            <option value="all" selected>Balanced Hard Mix (All SAT Math Domains)</option>
+                            <option value="Advanced Math">Advanced Math (Nonlinear equations, Quadratics, Functions)</option>
+                            <option value="Algebra">Algebra (Linear equations, Inequalities, Systems)</option>
+                            <option value="Geometry & Trigonometry">Geometry & Trigonometry (3D Volume, Circle Theorems, Trig ratios)</option>
+                            <option value="Problem-Solving & Data Analysis">Problem-Solving & Data Analysis (Percentages, Probabilities, Data)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Adaptive Test Banner -->
+                <div id="adaptive-notice" class="hidden bg-blue-50 border-l-4 border-bbBlue p-4 rounded-r-md">
+                    <div class="flex items-start">
+                        <i class="fa-solid fa-wand-magic-sparkles text-bbBlue text-lg mr-3 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-bbNavy text-sm">Adaptive Re-test Mode Active</h4>
+                            <p id="adaptive-reason" class="text-xs text-slate-600 mt-0.5">Test configured based on your previous performance weak points.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="pt-4 border-t flex justify-end">
+                    <button type="submit" class="bg-bbBlue hover:bg-bbHoverBlue text-white px-8 py-3 rounded-full font-semibold shadow-md transition-all flex items-center text-sm">
+                        Start Practice Test <i class="fa-solid fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </form>
+        </main>
+
+        <footer class="bg-slate-200 py-3 text-center text-xs text-slate-500">
+            Digital SAT® is a registered trademark of the College Board. This is an unofficial practice simulator.
+        </footer>
+    </div>
+
+    <!-- BLUEBOOK TESTING INTERFACE -->
+    <div id="test-screen" class="h-full w-full flex flex-col hidden relative">
+        <!-- TOP BLUEBOOK HEADER -->
+        <header class="bg-bbNavy text-white px-6 py-2.5 flex justify-between items-center select-none shadow-sm z-10">
+            <!-- Left Header: Section Info & Directions -->
+            <div class="flex items-center space-x-6">
+                <div>
+                    <span id="bb-section-title" class="font-bold text-base tracking-tight block leading-tight">Math - Module 1</span>
+                    <button onclick="toggleDirections()" class="text-xs text-slate-300 hover:text-white flex items-center mt-0.5">
+                        Directions <i id="directions-chevron" class="fa-solid fa-chevron-down text-[10px] ml-1 transition-transform"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Middle Header: Timer -->
+            <div class="flex items-center justify-center">
+                <div id="timer-box" class="bg-slate-800/80 border border-slate-700 px-4 py-1.5 rounded-md flex items-center space-x-3 text-sm font-mono tracking-wide">
+                    <span id="timer-display" class="font-bold text-white">35:00</span>
+                    <button id="timer-toggle-btn" onclick="toggleTimerVisibility()" class="text-slate-300 hover:text-white text-xs border-l border-slate-600 pl-3">
+                        Hide
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Header: Desmos, Reference, Strikethrough Tools -->
+            <div class="flex items-center space-x-2">
+                <button id="desmos-toggle-btn" onclick="toggleDesmosCalculator()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center space-x-2 transition text-emerald-400">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Desmos Calculator</span>
+                </button>
+                <button onclick="toggleReferenceModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-medium flex items-center space-x-1.5 transition">
+                    <i class="fa-solid fa-book-bookmark text-bbBlue"></i>
+                    <span>Reference</span>
+                </button>
+                <button id="elimination-toggle-btn" onclick="toggleEliminationTool()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-medium flex items-center space-x-1.5 transition">
+                    <i class="fa-solid fa-strikethrough text-slate-300"></i>
+                    <span>ABC</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- DIRECTIONS DROPDOWN PANEL -->
+        <div id="directions-panel" class="hidden bg-slate-800 text-slate-200 px-6 py-4 border-b border-slate-700 text-xs leading-relaxed z-20">
+            <h4 class="font-bold text-white mb-1">Module Directions:</h4>
+            <p>The questions in this section address various math skills. You may use the built-in Desmos graphing calculator or reference sheet for all questions. For multiple-choice questions, select the best answer. For student-produced response questions, enter your answer in the box provided.</p>
+        </div>
+
+        <!-- MAIN TEST CONTENT AREA (Split View with Collapsible Desmos Panel) -->
+        <main class="flex-1 bg-white flex overflow-hidden relative">
+            <!-- Left Column: Question Prompt / Stimulus -->
+            <div class="w-1/2 p-8 border-r border-slate-200 overflow-y-auto leading-relaxed text-slate-800 text-sm sm:text-base" id="q-prompt-container">
+                <div class="flex items-center justify-between mb-4">
+                    <span id="q-category-tag" class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full border border-slate-200">Category</span>
+                </div>
+                <div id="q-text" class="space-y-4">
+                    <!-- Question prompt text loads dynamically -->
+                </div>
+            </div>
+
+            <!-- Right Column: Answer Choices / Student Response Input -->
+            <div class="w-1/2 p-8 overflow-y-auto bg-slate-50/50 flex flex-col justify-between" id="q-answers-container">
+                <div id="answers-wrapper">
+                    <!-- Options loaded dynamically -->
+                </div>
+
+                <!-- Elimination mode banner -->
+                <div id="elimination-banner" class="hidden mt-4 p-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded text-center">
+                    <i class="fa-solid fa-info-circle mr-1"></i> Elimination Mode active: Click an option to cross it out.
+                </div>
+            </div>
+
+            <!-- DESMOS INTEGRATED DRAWER / MODAL PANEL -->
+            <div id="desmos-container" class="hidden absolute top-0 right-0 bottom-0 w-1/2 bg-white border-l-2 border-bbBlue z-30 flex flex-col">
+                <div class="bg-bbNavy text-white px-4 py-2 flex justify-between items-center select-none">
+                    <div class="flex items-center space-x-2 text-xs font-bold text-emerald-400">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Desmos Graphing Calculator (SAT Version)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="resetDesmos()" class="text-slate-300 hover:text-white text-xs px-2 py-0.5 rounded bg-slate-800 border border-slate-700">Reset</button>
+                        <button onclick="toggleDesmosCalculator()" class="text-slate-300 hover:text-white text-base pl-2"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div id="desmos-calculator" class="flex-1 w-full"></div>
+            </div>
+        </main>
+
+        <!-- BOTTOM BLUEBOOK FOOTER -->
+        <footer class="bg-bbDarkGray text-white px-6 py-3 flex justify-between items-center select-none shadow-lg z-10">
+            <!-- Question Review Popover Button -->
+            <div class="relative">
+                <button onclick="toggleGridPopover()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 text-sm font-semibold flex items-center space-x-2 transition">
+                    <span id="question-number-display">Question 1 of 15</span>
+                    <i class="fa-solid fa-chevron-up text-xs ml-1"></i>
+                </button>
+
+                <!-- QUESTION GRID POPOVER -->
+                <div id="grid-popover" class="hidden absolute bottom-14 left-0 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-4 z-40">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Question Map</span>
+                        <button onclick="toggleGridPopover()" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="grid-buttons-container" class="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto p-1">
+                        <!-- Grid buttons -->
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-800 flex justify-between text-[11px] text-slate-400">
+                        <span class="flex items-center"><span class="w-2.5 h-2.5 bg-slate-700 rounded-full inline-block mr-1"></span> Current</span>
+                        <span class="flex items-center"><span class="w-2.5 h-2.5 bg-bbBlue rounded-full inline-block mr-1"></span> Answered</span>
+                        <span class="flex items-center"><i class="fa-solid fa-bookmark text-bbFlagYellow mr-1"></i> Flagged</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle: Mark for Review Toggle -->
+            <div>
+                <button id="flag-btn" onclick="toggleFlagCurrentQuestion()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-sm font-medium flex items-center space-x-2 transition">
+                    <i id="flag-icon" class="fa-regular fa-bookmark text-slate-300"></i>
+                    <span id="flag-text">Mark for Review</span>
+                </button>
+            </div>
+
+            <!-- Right: Navigation (Back / Next / Finish) -->
+            <div class="flex items-center space-x-3">
+                <button id="back-btn" onclick="navigateQuestion(-1)" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-slate-700 text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    Back
+                </button>
+                <button id="next-btn" onclick="navigateQuestion(1)" class="px-6 py-2 bg-bbBlue hover:bg-bbHoverBlue text-white rounded-full text-sm font-semibold shadow transition">
+                    Next
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MODAL: REFERENCE SHEET -->
+    <div id="reference-modal" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-300">
+            <div class="bg-bbNavy text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center"><i class="fa-solid fa-book-bookmark mr-2 text-bbBlue"></i> SAT Math Reference Sheet</h3>
+                <button onclick="toggleReferenceModal()" class="text-slate-300 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-800">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 border-b pb-4">
+                    <div class="border p-3 rounded text-center bg-slate-50">
+                        <div class="font-bold text-bbNavy mb-1">Area of Circle</div>
+                        <div class="math-expr text-base">A = πr²</div>
+                        <div class="text-xs text-slate-500 mt-1">C = 2πr</div>
+                    </div>
+                    <div class="border p-3 rounded text-center bg-slate-50">
+                        <div class="font-bold text-bbNavy mb-1">Area of Rectangle</div>
+                        <div class="math-expr text-base">A = lw</div>
+                    </div>
+                    <div class="border p-3 rounded text-center bg-slate-50">
+                        <div class="font-bold text-bbNavy mb-1">Area of Triangle</div>
+                        <div class="math-expr text-base">A = ½bh</div>
+                    </div>
+                    <div class="border p-3 rounded text-center bg-slate-50">
+                        <div class="font-bold text-bbNavy mb-1">Pythagorean Theorem</div>
+                        <div class="math-expr text-base">a² + b² = c²</div>
+                    </div>
+                    <div class="border p-3 rounded text-center bg-slate-50">
+                        <div class="font-bold text-bbNavy mb-1">Volume of Rect. Prism</div>
+                        <div class="math-expr text-base">V = lwh</div>
+                    </div>
+                    <div class="border p-3 rounded text-center bg-slate-50">
+                        <div class="font-bold text-bbNavy mb-1">Volume of Cylinder</div>
+                        <div class="math-expr text-base">V = πr²h</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-bbNavy mb-2">Special Right Triangles</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="border p-3 rounded bg-slate-50 text-xs">
+                            <span class="font-bold block text-slate-700">30°-60°-90° Triangle:</span>
+                            Sides are in ratio <span class="math-expr">x : x√3 : 2x</span> opposite 30°, 60°, and 90° respectively.
+                        </div>
+                        <div class="border p-3 rounded bg-slate-50 text-xs">
+                            <span class="font-bold block text-slate-700">45°-45°-90° Triangle:</span>
+                            Legs are equal (<span class="math-expr">x</span>), Hypotenuse is <span class="math-expr">x√2</span>.
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-bbNavy mb-2">Additional Formulas & Rules</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-xs text-slate-600">
+                        <li>The number of degrees of arc in a circle is 360.</li>
+                        <li>The number of radians of arc in a circle is 2π.</li>
+                        <li>The sum of the angles in a triangle is 180 degrees.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-100 rounded-b-xl border-t text-right">
+                <button onclick="toggleReferenceModal()" class="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold rounded-md">Close Reference</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTS & SCORE BREAKDOWN SCREEN -->
+    <div id="results-screen" class="h-full w-full flex flex-col hidden bg-slate-100 overflow-y-auto">
+        <header class="bg-bbNavy text-white px-8 py-5 shadow-md flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500 text-white p-2 rounded-lg font-bold text-xl"><i class="fa-solid fa-chart-line"></i></div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">Practice Test Performance Scorecard</h1>
+                    <p class="text-xs text-slate-300">Digital SAT Math Diagnostics & Score Breakdown</p>
+                </div>
+            </div>
+            <button onclick="returnToDashboard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg border border-slate-700">
+                <i class="fa-solid fa-house mr-1.5"></i> Dashboard
+            </button>
+        </header>
+
+        <main class="max-w-5xl w-full mx-auto my-8 p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Estimated SAT Math Score</span>
+                    <div class="my-2">
+                        <span id="res-scaled-score" class="text-4xl font-extrabold text-bbNavy">720</span>
+                        <span class="text-xs text-slate-400">/ 800</span>
+                    </div>
+                    <div class="text-xs text-emerald-600 font-medium" id="res-percentile">Top 15% Equivalent</div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Accuracy</span>
+                    <div class="my-2">
+                        <span id="res-accuracy-pct" class="text-4xl font-extrabold text-slate-800">80%</span>
+                    </div>
+                    <div id="res-raw-ratio" class="text-xs text-slate-500">12 of 15 correct</div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Average Pace</span>
+                    <div class="my-2">
+                        <span id="res-avg-time" class="text-3xl font-extrabold text-slate-800">1m 12s</span>
+                    </div>
+                    <div class="text-xs text-slate-500">Target: &lt; 1m 30s / question</div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Primary Focus Area</span>
+                    <div class="my-2">
+                        <span id="res-weak-category" class="text-lg font-bold text-rose-600 block truncate">Advanced Math</span>
+                    </div>
+                    <div class="text-xs text-slate-500">Recommended for targeted review</div>
+                </div>
+            </div>
+
+            <!-- ADAPTIVE RE-TEST CTA CARD -->
+            <div class="bg-gradient-to-r from-bbNavy to-slate-900 text-white p-6 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="space-y-1">
+                    <h3 class="text-lg font-bold flex items-center">
+                        <i class="fa-solid fa-wand-magic-sparkles text-yellow-400 mr-2"></i> Adaptive Practice Engine Ready
+                    </h3>
+                    <p class="text-xs text-slate-300 max-w-2xl">
+                        Generate a customized practice set specifically weighted toward your incorrect questions and weakest domain (<span id="cta-weak-cat-name" class="text-yellow-300 font-semibold">Advanced Math</span>).
+                    </p>
+                </div>
+                <button onclick="generateAdaptiveTest()" class="whitespace-nowrap px-6 py-3 bg-bbBlue hover:bg-bbHoverBlue text-white font-bold text-sm rounded-full shadow-lg transition transform active:scale-95 flex items-center">
+                    Generate Adaptive Re-test <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 mb-4 text-base">Category Performance Breakdown</h3>
+                <div id="domain-breakdown-list" class="space-y-4">
+                    <!-- Progress Bars -->
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 mb-4 text-base">Detailed Question Review & Explanations</h3>
+                <div id="review-questions-list" class="space-y-6">
+                    <!-- Dynamic Question Review -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        /* SAT Hard Math Question Database */
+        const HARD_QUESTION_BANK = [
+            // Advanced Math
+            {
+                id: 'am_1',
+                category: 'Advanced Math',
+                type: 'mc',
+                prompt: 'If the quadratic equation \\(3x^2 - 12x + (k - 2) = 0\\) has exactly one real solution, what is the value of the constant \\(k\\)?',
+                options: ['A) 10', 'B) 12', 'C) 14', 'D) 16'],
+                correctIndex: 2, // C) 14
+                explanation: 'For a quadratic equation \\(ax^2 + bx + c = 0\\) to have exactly one real solution, its discriminant must be zero: \\(b^2 - 4ac = 0\\).<br>Here, \\(a = 3\\), \\(b = -12\\), and \\(c = k - 2\\).<br>Substitute these values into the discriminant equation:<br>\\((-12)^2 - 4(3)(k - 2) = 0\\)<br>\\(144 - 12(k - 2) = 0\\)<br>\\(144 = 12(k - 2)\\)<br>\\(12 = k - 2 \\implies k = 14\\).'
+            },
+            {
+                id: 'am_2',
+                category: 'Advanced Math',
+                type: 'mc',
+                prompt: 'The function \\(f(x) = a(x - h)^2 + k\\) has its vertex at \\((3, -5)\\) and passes through the point \\((1, 7)\\). What is the value of \\(f(5)\\)?',
+                options: ['A) -5', 'B) 3', 'C) 7', 'D) 12'],
+                correctIndex: 2, // C) 7
+                explanation: 'Substitute vertex \\((h, k) = (3, -5)\\) into the function: \\(f(x) = a(x - 3)^2 - 5\\).<br>Use point \\((1, 7)\\) to solve for \\(a\\):<br>\\(7 = a(1 - 3)^2 - 5 \\implies 12 = a(-2)^2 \\implies 12 = 4a \\implies a = 3\\).<br>Now evaluate \\(f(5)\\):<br>\\(f(5) = 3(5 - 3)^2 - 5 = 3(2)^2 - 5 = 12 - 5 = 7\\).'
+            },
+            {
+                id: 'am_3',
+                category: 'Advanced Math',
+                type: 'gridin',
+                prompt: 'If \\(2^{x+3} - 2^x = 112\\), what is the value of \\(x\\)?',
+                correctAnswer: '4',
+                explanation: 'Rewrite \\(2^{x+3}\\) as \\(2^x \\cdot 2^3 = 8 \\cdot 2^x\\).<br>Substitute this back into the equation:<br>\\(8 \\cdot 2^x - 2^x = 112\\)<br>\\(7 \\cdot 2^x = 112\\)<br>\\(2^x = 16\\)<br>Since \\(2^4 = 16\\), \\(x = 4\\).'
+            },
+            {
+                id: 'am_4',
+                category: 'Advanced Math',
+                type: 'mc',
+                prompt: 'Which of the following expression is equivalent to \\(\\frac{x^3 - 8}{x - 2}\\) for all \\(x \\neq 2\\)?',
+                options: ['A) \\(x^2 + 4\\)', 'B) \\(x^2 - 2x + 4\\)', 'C) \\(x^2 + 2x + 4\\)', 'D) \\(x^2 + 4x + 4\\)'],
+                correctIndex: 2, // C
+                explanation: 'Use the difference of cubes factoring formula: \\(a^3 - b^3 = (a - b)(a^2 + ab + b^2)\\).<br>Here \\(a = x\\) and \\(b = 2\\), so \\(x^3 - 8 = (x - 2)(x^2 + 2x + 4)\\).<br>Dividing by \\((x - 2)\\) leaves \\(x^2 + 2x + 4\\).'
+            },
+
+            // Algebra
+            {
+                id: 'alg_1',
+                category: 'Algebra',
+                type: 'mc',
+                prompt: 'A system of two linear equations in variables \\(x\\) and \\(y\\) has infinitely many solutions. One of the equations is \\(4x - 6y = 10\\). Which of the following could be the second equation?',
+                options: ['A) \\(2x - 3y = 10\\)', 'B) \\(-6x + 9y = -15\\)', 'C) \\(8x - 12y = 15\\)', 'D) \\(12x - 18y = 20\\)'],
+                correctIndex: 1, // B
+                explanation: 'Infinitely many solutions occur when two equations represent the exact same line.<br>Multiply \\(4x - 6y = 10\\) by \\(-1.5\\):<br>\\(-1.5(4x - 6y) = -1.5(10) \\implies -6x + 9y = -15\\).<br>Option B is equivalent to the original equation.'
+            },
+            {
+                id: 'alg_2',
+                category: 'Algebra',
+                type: 'gridin',
+                prompt: 'Line \\(L\\) in the xy-plane is perpendicular to the line with equation \\(3x - 5y = 12\\). If Line \\(L\\) passes through the point \\((6, -1)\\), what is the y-intercept of Line \\(L\\)?',
+                correctAnswer: '9',
+                explanation: 'Rewrite \\(3x - 5y = 12\\) in slope-intercept form: \\(y = \\frac{3}{5}x - \\frac{12}{5}\\). The slope is \\(m_1 = \\frac{3}{5}\\).<br>The perpendicular slope is the negative reciprocal: \\(m_2 = -\\frac{5}{3}\\).<br>Use point-slope form with \\((6, -1)\\):<br>\\(y - (-1) = -\\frac{5}{3}(x - 6) \\implies y + 1 = -\\frac{5}{3}x + 10 \\implies y = -\\frac{5}{3}x + 9\\).<br>The y-intercept is 9.'
+            },
+            {
+                id: 'alg_3',
+                category: 'Algebra',
+                type: 'mc',
+                prompt: 'For what value of \\(c\\) will the system of inequalities \\(y \\le 2x + 4\\) and \\(y \\ge -3x + c\\) contain no points in Quadrant IV?',
+                options: ['A) 0', 'B) 4', 'C) 8', 'D) 12'],
+                correctIndex: 2, // C
+                explanation: 'Quadrant IV contains points where \\(x > 0\\) and \\(y < 0\\). Analysis of boundary intersection at the y-axis requires \\(c \\ge 8\\) to ensure all solution region falls above or on the x-axis for positive x values.'
+            },
+
+            // Geometry & Trigonometry
+            {
+                id: 'gt_1',
+                category: 'Geometry & Trigonometry',
+                type: 'mc',
+                prompt: 'A circle in the xy-plane has equation \\(x^2 + y^2 - 8x + 10y - 8 = 0\\). What is the radius of the circle?',
+                options: ['A) 7', 'B) 8', 'C) 14', 'D) 49'],
+                correctIndex: 0, // A) 7
+                explanation: 'Complete the square for \\(x\\) and \\(y\\):<br>\\((x^2 - 8x + 16) + (y^2 + 10y + 25) = 8 + 16 + 25\\)<br>\\((x - 4)^2 + (y + 5)^2 = 49\\)<br>The standard equation of a circle is \\((x-h)^2 + (y-k)^2 = r^2\\).<br>Here \\(r^2 = 49\\), so radius \\(r = 7\\).'
+            },
+            {
+                id: 'gt_2',
+                category: 'Geometry & Trigonometry',
+                type: 'gridin',
+                prompt: 'In right triangle \\(ABC\\), angle \\(C\\) is the right angle. If \\(\\sin(A) = \\frac{5}{13}\\), what is the value of \\(\\tan(B)\\)? Give answer as fraction or decimal (e.g., 12/5).',
+                correctAnswer: '12/5',
+                explanation: 'In right triangle \\(ABC\\), \\(\\sin(A) = \\frac{\\text{opposite}}{\\text{hypotenuse}} = \\frac{a}{c} = \\frac{5}{13}\\).<br>By Pythagorean theorem, adjacent side \\(b = \\sqrt{13^2 - 5^2} = \\sqrt{169 - 25} = 12\\).<br>For angle \\(B\\), opposite side is \\(b = 12\\) and adjacent side is \\(a = 5\\).<br>Thus \\(\\tan(B) = \\frac{\\text{opposite}}{\\text{adjacent}} = \\frac{12}{5}\\).'
+            },
+            {
+                id: 'gt_3',
+                category: 'Geometry & Trigonometry',
+                type: 'mc',
+                prompt: 'A right circular cone has a height of 12 cm and a base radius of 5 cm. What is the total surface area, in square centimeters, of the cone including its base?',
+                options: ['A) \\(65\\pi\\)', 'B) \\(90\\pi\\)', 'C) \\(95\\pi\\)', 'D) \\(120\\pi\\)'],
+                correctIndex: 1, // B) 90pi
+                explanation: 'Slant height \\(l = \\sqrt{r^2 + h^2} = \\sqrt{5^2 + 12^2} = \\sqrt{25 + 144} = 13\\) cm.<br>Total surface area = base area + lateral area = \\(\\pi r^2 + \\pi r l\\).<br>SA = \\(\\pi(5)^2 + \\pi(5)(13) = 25\\pi + 65\\pi = 90\\pi\\).'
+            },
+
+            // Problem-Solving & Data Analysis
+            {
+                id: 'psa_1',
+                category: 'Problem-Solving & Data Analysis',
+                type: 'mc',
+                prompt: 'A sample of radioactive isotope decays such that its mass decreases by 15% every 4 hours. If the initial mass is 500 grams, which function \\(M(t)\\) models the remaining mass in grams after \\(t\\) hours?',
+                options: [
+                    'A) \\(M(t) = 500(0.85)^{4t}\\)',
+                    'B) \\(M(t) = 500(0.85)^{t/4}\\)',
+                    'C) \\(M(t) = 500(0.15)^{t/4}\\)',
+                    'D) \\(M(t) = 500(1.15)^{t/4}\\)'
+                ],
+                correctIndex: 1, // B
+                explanation: 'Exponential decay formula is \\(M(t) = P(1 - r)^{t/k}\\).<br>Initial mass \\(P = 500\\), rate of reduction \\(r = 0.15\\) (so factor is \\(1 - 0.15 = 0.85\\)), and time period \\(k = 4\\) hours.<br>Thus, \\(M(t) = 500(0.85)^{t/4}\\).'
+            },
+            {
+                id: 'psa_2',
+                category: 'Problem-Solving & Data Analysis',
+                type: 'gridin',
+                prompt: 'The mean of a set of 8 numbers is 24. If two numbers with a sum of 60 are removed from the set, what is the mean of the remaining 6 numbers?',
+                correctAnswer: '22',
+                explanation: 'Total sum of original 8 numbers = \\(8 \\times 24 = 192\\).<br>Sum of remaining 6 numbers = \\(192 - 60 = 132\\).<br>New mean = \\(\\frac{132}{6} = 22\\).'
+            },
+            {
+                id: 'psa_3',
+                category: 'Problem-Solving & Data Analysis',
+                type: 'mc',
+                prompt: 'In a study of 400 high school students, 240 study Spanish, 180 study French, and 60 study neither. If a student is selected at random from those who study Spanish, what is the probability that they also study French?',
+                options: ['A) 0.25', 'B) 0.33', 'C) 0.38', 'D) 0.50'],
+                correctIndex: 1, // B) 0.33 (80/240)
+                explanation: 'Total students studying at least one language = \\(400 - 60 = 340\\).<br>By inclusion-exclusion: \\(N(\\text{Spanish} \\cup \\text{French}) = N(S) + N(F) - N(S \\cap F)\\).<br>\\(340 = 240 + 180 - N(S \\cap F) \\implies 340 = 420 - N(S \\cap F) \\implies N(S \\cap F) = 80\\).<br>Given student studies Spanish, probability they also study French = \\(\\frac{80}{240} = \\frac{1}{3} \\approx 0.33\\).'
+            }
+        ];
+
+        /* Test Application State */
+        let currentTestState = {
+            questions: [],
+            answers: {},          
+            flagged: {},          
+            eliminated: {},       
+            currentIndex: 0,
+            timerInterval: null,
+            timeRemaining: 0,
+            isUntimed: false,
+            eliminationMode: false,
+            desmosCalculator: null,
+            desmosVisible: false
+        };
+
+        let userHistory = JSON.parse(localStorage.getItem('sat_bluebook_history') || '[]');
+
+        window.onload = function() {
+            updateDashboardStats();
+        };
+
+        function toggleTimerInput() {
+            const timerType = document.getElementById('cfg-timer-type').value;
+            const customContainer = document.getElementById('custom-time-container');
+            if (timerType === 'custom') {
+                customContainer.classList.remove('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        }
+
+        function updateDashboardStats() {
+            document.getElementById('stat-tests-count').innerText = userHistory.length;
+            if (userHistory.length > 0) {
+                const avg = Math.round(userHistory.reduce((acc, curr) => acc + curr.scaledScore, 0) / userHistory.length);
+                document.getElementById('stat-avg-score').innerText = avg;
+            } else {
+                document.getElementById('stat-avg-score').innerText = '--';
+            }
+        }
+
+        function initDesmosCalculator() {
+            if (!currentTestState.desmosCalculator) {
+                const elt = document.getElementById('desmos-calculator');
+                if (window.Desmos) {
+                    currentTestState.desmosCalculator = Desmos.GraphingCalculator(elt, {
+                        keypad: true,
+                        graphpaper: true,
+                        expressions: true,
+                        settingsMenu: true,
+                        border: false
+                    });
+                }
+            }
+        }
+
+        function toggleDesmosCalculator() {
+            const container = document.getElementById('desmos-container');
+            const btn = document.getElementById('desmos-toggle-btn');
+            
+            currentTestState.desmosVisible = !currentTestState.desmosVisible;
+
+            if (currentTestState.desmosVisible) {
+                container.classList.remove('hidden');
+                btn.classList.add('bg-emerald-600', 'text-white');
+                btn.classList.remove('bg-slate-800', 'text-emerald-400');
+                initDesmosCalculator();
+                if (currentTestState.desmosCalculator) {
+                    currentTestState.desmosCalculator.resize();
+                }
+            } else {
+                container.classList.add('hidden');
+                btn.classList.remove('bg-emerald-600', 'text-white');
+                btn.classList.add('bg-slate-800', 'text-emerald-400');
+            }
+        }
+
+        function resetDesmos() {
+            if (currentTestState.desmosCalculator) {
+                currentTestState.desmosCalculator.setBlank();
+            }
+        }
+
+        function startTest(customQuestionSet = null, isAdaptive = false) {
+            const count = parseInt(document.getElementById('cfg-question-count').value);
+            const categoryFilter = document.getElementById('cfg-category').value;
+            const timerType = document.getElementById('cfg-timer-type').value;
+
+            let selectedQuestions = [];
+
+            if (customQuestionSet) {
+                selectedQuestions = customQuestionSet;
+            } else {
+                let pool = [...HARD_QUESTION_BANK];
+                if (categoryFilter !== 'all') {
+                    pool = pool.filter(q => q.category === categoryFilter);
+                }
+                pool.sort(() => Math.random() - 0.5);
+                selectedQuestions = pool.slice(0, Math.min(count, pool.length));
+            }
+
+            let totalSeconds = 0;
+            if (timerType === 'untimed') {
+                currentTestState.isUntimed = true;
+            } else if (timerType === 'custom') {
+                const mins = parseInt(document.getElementById('cfg-custom-minutes').value) || 35;
+                totalSeconds = mins * 60;
+                currentTestState.isUntimed = false;
+            } else {
+                totalSeconds = Math.round(selectedQuestions.length * 1.5 * 60);
+                currentTestState.isUntimed = false;
+            }
+
+            currentTestState.questions = selectedQuestions;
+            currentTestState.answers = {};
+            currentTestState.flagged = {};
+            currentTestState.eliminated = {};
+            currentTestState.currentIndex = 0;
+            currentTestState.timeRemaining = totalSeconds;
+            currentTestState.eliminationMode = false;
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('test-screen').classList.remove('hidden');
+
+            renderCurrentQuestion();
+            setupGridPopover();
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(currentTestState.timerInterval);
+            const timerDisplay = document.getElementById('timer-display');
+            
+            if (currentTestState.isUntimed) {
+                timerDisplay.innerText = "Untimed Mode";
+                return;
+            }
+
+            updateTimerDisplay();
+            currentTestState.timerInterval = setInterval(() => {
+                currentTestState.timeRemaining--;
+                updateTimerDisplay();
+
+                if (currentTestState.timeRemaining <= 0) {
+                    clearInterval(currentTestState.timerInterval);
+                    alert("Time's up! Submitting your practice test now.");
+                    submitTest();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            if (currentTestState.isUntimed) return;
+            const mins = Math.floor(currentTestState.timeRemaining / 60);
+            const secs = currentTestState.timeRemaining % 60;
+            document.getElementById('timer-display').innerText = 
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function toggleTimerVisibility() {
+            const display = document.getElementById('timer-display');
+            const btn = document.getElementById('timer-toggle-btn');
+            if (display.classList.contains('invisible')) {
+                display.classList.remove('invisible');
+                btn.innerText = 'Hide';
+            } else {
+                display.classList.add('invisible');
+                btn.innerText = 'Show';
+            }
+        }
+
+        function toggleDirections() {
+            const panel = document.getElementById('directions-panel');
+            const chevron = document.getElementById('directions-chevron');
+            panel.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+
+        function toggleEliminationTool() {
+            currentTestState.eliminationMode = !currentTestState.eliminationMode;
+            const btn = document.getElementById('elimination-toggle-btn');
+            const banner = document.getElementById('elimination-banner');
+
+            if (currentTestState.eliminationMode) {
+                btn.classList.add('bg-bbBlue', 'text-white');
+                btn.classList.remove('bg-slate-800');
+                banner.classList.remove('hidden');
+            } else {
+                btn.classList.remove('bg-bbBlue', 'text-white');
+                btn.classList.add('bg-slate-800');
+                banner.classList.add('hidden');
+            }
+        }
+
+        function renderCurrentQuestion() {
+            const q = currentTestState.questions[currentTestState.currentIndex];
+            const qIndex = currentTestState.currentIndex;
+
+            document.getElementById('question-number-display').innerText = `Question ${qIndex + 1} of ${currentTestState.questions.length}`;
+            document.getElementById('q-category-tag').innerText = q.category;
+            document.getElementById('q-text').innerHTML = q.prompt;
+
+            const answersWrapper = document.getElementById('answers-wrapper');
+            answersWrapper.innerHTML = '';
+
+            if (q.type === 'mc') {
+                q.options.forEach((optText, optIdx) => {
+                    const letter = String.fromCharCode(65 + optIdx);
+                    const isSelected = currentTestState.answers[qIndex] === letter;
+                    const isEliminated = (currentTestState.eliminated[qIndex] || []).includes(optIdx);
+
+                    const btn = document.createElement('button');
+                    btn.className = `option-btn w-full p-4 mb-3 border-2 rounded-lg flex items-center text-left transition-all ${isSelected ? 'selected' : 'border-slate-200 bg-white hover:border-slate-300'} ${isEliminated ? 'eliminated' : ''}`;
+                    btn.onclick = () => handleOptionClick(optIdx, letter);
+
+                    btn.innerHTML = `
+                        <span class="option-letter w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center font-bold text-sm mr-3 bg-slate-100 text-slate-700">${letter}</span>
+                        <span class="text-slate-800 text-sm sm:text-base font-medium">${optText.substring(3)}</span>
+                    `;
+                    answersWrapper.appendChild(btn);
+                });
+            } else if (q.type === 'gridin') {
+                const userVal = currentTestState.answers[qIndex] || '';
+                answersWrapper.innerHTML = `
+                    <div class="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+                        <label class="block font-semibold text-slate-700 mb-2 text-sm">Student-Produced Response (Grid-in):</label>
+                        <p class="text-xs text-slate-500 mb-4">Enter your numerical answer in the box below. Fractions (e.g., 12/5) or decimals are accepted.</p>
+                        <input type="text" id="gridin-input" value="${userVal}" oninput="handleGridInInput(this.value)" 
+                               placeholder="Type your answer..." 
+                               class="w-full p-3 border-2 border-slate-300 rounded-md focus:border-bbBlue focus:outline-none font-mono text-lg font-bold text-slate-800">
+                    </div>
+                `;
+            }
+
+            updateFlagButtonUI();
+
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+
+            document.getElementById('back-btn').disabled = qIndex === 0;
+            const nextBtn = document.getElementById('next-btn');
+            if (qIndex === currentTestState.questions.length - 1) {
+                nextBtn.innerText = 'Submit Test';
+                nextBtn.className = 'px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-sm font-semibold shadow transition';
+            } else {
+                nextBtn.innerText = 'Next';
+                nextBtn.className = 'px-6 py-2 bg-bbBlue hover:bg-bbHoverBlue text-white rounded-full text-sm font-semibold shadow transition';
+            }
+        }
+
+        function handleOptionClick(optIdx, letter) {
+            const qIndex = currentTestState.currentIndex;
+
+            if (currentTestState.eliminationMode) {
+                if (!currentTestState.eliminated[qIndex]) {
+                    currentTestState.eliminated[qIndex] = [];
+                }
+                const elimList = currentTestState.eliminated[qIndex];
+                if (elimList.includes(optIdx)) {
+                    currentTestState.eliminated[qIndex] = elimList.filter(i => i !== optIdx);
+                } else {
+                    elimList.push(optIdx);
+                }
+            } else {
+                currentTestState.answers[qIndex] = letter;
+            }
+            renderCurrentQuestion();
+            updateGridPopoverButtons();
+        }
+
+        function handleGridInInput(val) {
+            const qIndex = currentTestState.currentIndex;
+            currentTestState.answers[qIndex] = val.trim();
+            updateGridPopoverButtons();
+        }
+
+        function toggleFlagCurrentQuestion() {
+            const qIndex = currentTestState.currentIndex;
+            currentTestState.flagged[qIndex] = !currentTestState.flagged[qIndex];
+            updateFlagButtonUI();
+            updateGridPopoverButtons();
+        }
+
+        function updateFlagButtonUI() {
+            const isFlagged = currentTestState.flagged[currentTestState.currentIndex];
+            const flagIcon = document.getElementById('flag-icon');
+            const flagText = document.getElementById('flag-text');
+
+            if (isFlagged) {
+                flagIcon.className = 'fa-solid fa-bookmark text-bbFlagYellow';
+                flagText.innerText = 'Flagged';
+            } else {
+                flagIcon.className = 'fa-regular fa-bookmark text-slate-300';
+                flagText.innerText = 'Mark for Review';
+            }
+        }
+
+        function navigateQuestion(direction) {
+            const newIndex = currentTestState.currentIndex + direction;
+            if (newIndex >= 0 && newIndex < currentTestState.questions.length) {
+                currentTestState.currentIndex = newIndex;
+                renderCurrentQuestion();
+            } else if (newIndex >= currentTestState.questions.length) {
+                submitTest();
+            }
+        }
+
+        function toggleGridPopover() {
+            const popover = document.getElementById('grid-popover');
+            popover.classList.toggle('hidden');
+        }
+
+        function setupGridPopover() {
+            updateGridPopoverButtons();
+        }
+
+        function updateGridPopoverButtons() {
+            const container = document.getElementById('grid-buttons-container');
+            container.innerHTML = '';
+
+            currentTestState.questions.forEach((q, idx) => {
+                const isAnswered = currentTestState.answers[idx] !== undefined && currentTestState.answers[idx] !== '';
+                const isFlagged = currentTestState.flagged[idx];
+                const isCurrent = idx === currentTestState.currentIndex;
+
+                let btnStyle = 'bg-slate-800 text-slate-300 border-slate-700';
+                if (isCurrent) btnStyle = 'border-2 border-white font-bold bg-slate-700 text-white';
+                else if (isAnswered) btnStyle = 'bg-bbBlue text-white border-bbBlue';
+
+                const btn = document.createElement('button');
+                btn.className = `p-2 text-xs rounded border flex flex-col items-center justify-center relative font-semibold transition ${btnStyle}`;
+                btn.onclick = () => {
+                    currentTestState.currentIndex = idx;
+                    renderCurrentQuestion();
+                    toggleGridPopover();
+                };
+
+                btn.innerHTML = `
+                    <span>${idx + 1}</span>
+                    ${isFlagged ? '<i class="fa-solid fa-bookmark text-[9px] text-bbFlagYellow absolute top-1 right-1"></i>' : ''}
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function submitTest() {
+            clearInterval(currentTestState.timerInterval);
+
+            let correctCount = 0;
+            const categoryStats = {};
+
+            currentTestState.questions.forEach((q, idx) => {
+                if (!categoryStats[q.category]) {
+                    categoryStats[q.category] = { total: 0, correct: 0 };
+                }
+                categoryStats[q.category].total++;
+
+                const userAns = currentTestState.answers[idx];
+                let isCorrect = false;
+
+                if (q.type === 'mc') {
+                    const correctLetter = String.fromCharCode(65 + q.correctIndex);
+                    if (userAns === correctLetter) isCorrect = true;
+                } else if (q.type === 'gridin') {
+                    if (userAns && userAns.trim() === q.correctAnswer) isCorrect = true;
+                }
+
+                if (isCorrect) {
+                    correctCount++;
+                    categoryStats[q.category].correct++;
+                }
+            });
+
+            const totalQs = currentTestState.questions.length;
+            const pct = Math.round((correctCount / totalQs) * 100);
+
+            const scaledScore = Math.round(200 + (pct / 100) * 600);
+
+            let weakestCat = 'Advanced Math';
+            let lowestAcc = 101;
+            Object.keys(categoryStats).forEach(cat => {
+                const acc = (categoryStats[cat].correct / categoryStats[cat].total) * 100;
+                if (acc < lowestAcc) {
+                    lowestAcc = acc;
+                    weakestCat = cat;
+                }
+            });
+
+            const sessionResult = {
+                date: new Date().toLocaleDateString(),
+                score: correctCount,
+                total: totalQs,
+                scaledScore: scaledScore,
+                weakestCat: weakestCat
+            };
+            userHistory.push(sessionResult);
+            localStorage.setItem('sat_bluebook_history', JSON.stringify(userHistory));
+            updateDashboardStats();
+
+            renderResultsScreen(scaledScore, pct, correctCount, totalQs, categoryStats, weakestCat);
+
+            document.getElementById('test-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.remove('hidden');
+        }
+
+        function renderResultsScreen(scaledScore, pct, correctCount, totalQs, categoryStats, weakestCat) {
+            document.getElementById('res-scaled-score').innerText = scaledScore;
+            document.getElementById('res-accuracy-pct').innerText = `${pct}%`;
+            document.getElementById('res-raw-ratio').innerText = `${correctCount} of ${totalQs} correct`;
+            document.getElementById('res-weak-category').innerText = weakestCat;
+            document.getElementById('cta-weak-cat-name').innerText = weakestCat;
+
+            const breakdownContainer = document.getElementById('domain-breakdown-list');
+            breakdownContainer.innerHTML = '';
+
+            Object.keys(categoryStats).forEach(cat => {
+                const stat = categoryStats[cat];
+                const catPct = Math.round((stat.correct / stat.total) * 100);
+
+                let barColor = 'bg-emerald-500';
+                if (catPct < 60) barColor = 'bg-rose-500';
+                else if (catPct < 80) barColor = 'bg-amber-500';
+
+                const div = document.createElement('div');
+                div.className = 'space-y-1';
+                div.innerHTML = `
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-700">${cat}</span>
+                        <span class="text-slate-500">${stat.correct}/${stat.total} (${catPct}%)</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border">
+                        <div class="${barColor} h-2.5 rounded-full" style="width: ${catPct}%"></div>
+                    </div>
+                `;
+                breakdownContainer.appendChild(div);
+            });
+
+            const reviewContainer = document.getElementById('review-questions-list');
+            reviewContainer.innerHTML = '';
+
+            currentTestState.questions.forEach((q, idx) => {
+                const userAns = currentTestState.answers[idx] || 'Unanswered';
+                let isCorrect = false;
+                let correctAnsText = '';
+
+                if (q.type === 'mc') {
+                    correctAnsText = String.fromCharCode(65 + q.correctIndex);
+                    if (userAns === correctAnsText) isCorrect = true;
+                } else {
+                    correctAnsText = q.correctAnswer;
+                    if (userAns.trim() === q.correctAnswer) isCorrect = true;
+                }
+
+                const card = document.createElement('div');
+                card.className = `p-5 rounded-lg border text-sm ${isCorrect ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/30'}`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="font-bold text-slate-700">Question ${idx + 1} (${q.category})</span>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                            ${isCorrect ? '<i class="fa-solid fa-check mr-1"></i> Correct' : '<i class="fa-solid fa-xmark mr-1"></i> Incorrect'}
+                        </span>
+                    </div>
+                    <div class="mb-4 text-slate-800">${q.prompt}</div>
+                    <div class="grid grid-cols-2 gap-4 text-xs font-medium bg-white p-3 rounded border mb-3">
+                        <div>Your Answer: <span class="${isCorrect ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}">${userAns}</span></div>
+                        <div>Correct Answer: <span class="text-emerald-600 font-bold">${correctAnsText}</span></div>
+                    </div>
+                    <div class="text-xs bg-slate-100 p-3 rounded border text-slate-700">
+                        <span class="font-bold block text-bbNavy mb-1">Step-by-Step Explanation:</span>
+                        ${q.explanation}
+                    </div>
+                `;
+                reviewContainer.appendChild(card);
+            });
+
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        function generateAdaptiveTest() {
+            const userAnsMap = currentTestState.answers;
+            const incorrectCategories = [];
+
+            currentTestState.questions.forEach((q, idx) => {
+                const userAns = userAnsMap[idx];
+                let isCorrect = false;
+
+                if (q.type === 'mc') {
+                    if (userAns === String.fromCharCode(65 + q.correctIndex)) isCorrect = true;
+                } else if (q.type === 'gridin') {
+                    if (userAns && userAns.trim() === q.correctAnswer) isCorrect = true;
+                }
+
+                if (!isCorrect) {
+                    incorrectCategories.push(q.category);
+                }
+            });
+
+            let adaptivePool = [];
+            if (incorrectCategories.length > 0) {
+                adaptivePool = HARD_QUESTION_BANK.filter(q => incorrectCategories.includes(q.category));
+            }
+
+            if (adaptivePool.length < 10) {
+                const remaining = HARD_QUESTION_BANK.filter(q => !adaptivePool.includes(q));
+                adaptivePool = adaptivePool.concat(remaining);
+            }
+
+            adaptivePool.sort(() => Math.random() - 0.5);
+            const selectedSet = adaptivePool.slice(0, 10);
+
+            document.getElementById('adaptive-notice').classList.remove('hidden');
+            document.getElementById('adaptive-reason').innerText = `Re-test configured with focus on: ${[...new Set(incorrectCategories)].join(', ') || 'Hard SAT Math'}`;
+
+            startTest(selectedSet, true);
+        }
+
+        function returnToDashboard() {
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('test-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+        }
+
+        function toggleReferenceModal() {
+            document.getElementById('reference-modal').classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
